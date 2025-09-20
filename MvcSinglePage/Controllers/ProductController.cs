@@ -63,6 +63,40 @@ namespace MvcSinglePage.Controllers
         }
         #endregion
 
+        #region [- Put() -]
+        [HttpPut]
+        public async Task<IActionResult> Put([FromBody] Put_Product_Dto dto)
+        {
+            Guard_PersonService();
+            if (dto == null)
+                return BadRequest("Product data is null");
+
+            var response = await _productApplicationService.Put(dto);
+
+            if (!response.IsSuccessful)
+                return BadRequest(response.ErrorMessage);
+
+            return Ok(response.Result);
+        }
+        #endregion
+
+        #region [- Delete() -]
+        [HttpPost]
+        [ActionName("Delete")]
+        public async Task<IActionResult> DeleteConfirmed([FromBody] Guid id)
+        {
+            var response = await _productApplicationService.Delete(id);
+
+            if (!response.IsSuccessful)
+                return BadRequest(new { errorMessage = response.ErrorMessage });
+
+            return Ok(new { message = "Product deleted successfully" });
+        }
+
+
+        #endregion
+
+
 
 
 
