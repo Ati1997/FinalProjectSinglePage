@@ -75,7 +75,7 @@
 //    setTimeout(() => resultMessage.style.opacity = "0", 2000);
 //}
 
-// Product.js (اصلاح‌شده)
+
 var form = document.getElementById("formAddProduct");
 var tbody = document.getElementById("tbodyProducts");
 var resultMessage = document.getElementById("resultMessage");
@@ -87,7 +87,7 @@ var priceInput = document.getElementById("price");
 var btnSave = document.getElementById("btnSave");
 
 window.onload = LoadData;
-form.addEventListener("submit", onSubmit); // فقط یک listener
+form.addEventListener("submit", onAddSubmit);
 
 function LoadData() {
     tbody.innerHTML = "";
@@ -107,7 +107,6 @@ function LoadData() {
 
             let html = "";
             products.forEach(p => {
-                // Escape ساده مقادیر برای جلوگیری از مشکل کوتیشن در onclick
                 const safeTitle = (p.title || "").replace(/'/g, "\\'");
                 const safeDesc = (p.productDescription || "").replace(/'/g, "\\'");
                 html += `<tr>
@@ -115,8 +114,8 @@ function LoadData() {
                     <td>${p.productDescription}</td>
                     <td>${p.unitPrice}</td>
                     <td>
-                        <button class="btn btn-warning btn-sm" onclick="EditProduct('${p.id}','${safeTitle}','${safeDesc}',${p.unitPrice})">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="DeleteProduct('${p.id}')">Delete</button>
+                        <button class="btn btn-warning btn-sm" onclick="onEdit('${p.id}','${safeTitle}','${safeDesc}',${p.unitPrice})">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="onDelete('${p.id}')">Delete</button>
                     </td>
                 </tr>`;
             });
@@ -128,59 +127,88 @@ function LoadData() {
         });
 }
 
-async function onSubmit(e) {
+async function onAddSubmit(e) {
     e.preventDefault();
-    // جلوگیری از ارسال دوباره تا زمانی که درخواست پردازش میشه
     btnSave.disabled = true;
 
     try {
-        let id = idInput.value || null;
         let dto = {
-            Id: id, // null یا "" برای Post، مقدار guid برای Put
             Title: titleInput.value.trim(),
             ProductDescription: descriptionInput.value.trim(),
             UnitPrice: parseFloat(priceInput.value)
         };
 
-        let url = id ? "/Product/Put" : "/Product/Post";
-        let method = id ? "PUT" : "POST";
-
-        const res = await fetch(url, {
-            method: method,
+        const res = await fetch("/Product/Post", {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(dto)
         });
 
-        // اگر سرور چیزی جز JSON بازمی‌گرداند، اینجا خطا هندل شود
         const response = await res.json();
-
         if (!res.ok) {
-            // اگر سرور خطای منطقی فرستاد
-            TriggerResultMessage(response.errorMessage || "Server returned error");
+            TriggerResultMessage(response.errorMessage || "Failed to add product");
         } else {
-            TriggerResultMessage(id ? "Product updated" : "Product added");
+            TriggerResultMessage("Product added successfully");
             form.reset();
-            idInput.value = "";
             LoadData();
         }
     } catch (err) {
         console.error(err);
-        TriggerResultMessage("Network error or unexpected server response");
+        TriggerResultMessage("Network error during add");
     } finally {
         btnSave.disabled = false;
     }
 }
 
-function EditProduct(id, title, description, price) {
+async function onEditSubmit(e) {
+    e.preventDefault();
+    btnSave.disabled = true;
+
+    try {
+        let dto = {
+            Id: idInput.value,
+            Title: titleInput.value.trim(),
+            ProductDescription: descriptionInput.value.trim(),
+            UnitPrice: parseFloat(priceInput.value)
+        };
+
+        const res = await fetch("/Product/Put", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dto)
+        });
+
+        const response = await res.json();
+        if (!res.ok) {
+            TriggerResultMessage(response.errorMessage || "Failed to update product");
+        } else {
+            TriggerResultMessage("Product updated successfully");
+            form.reset();
+            idInput.value = "";
+            LoadData();
+            form.removeEventListener("submit", onEditSubmit);
+            form.addEventListener("submit", onAddSubmit);
+        }
+    } catch (err) {
+        console.error(err);
+        TriggerResultMessage("Network error during update");
+    } finally {
+        btnSave.disabled = false;
+    }
+}
+
+function onEdit(id, title, description, price) {
     idInput.value = id;
     titleInput.value = title;
     descriptionInput.value = description;
     priceInput.value = price;
-    // اسکرول یا فوکوس میتونی اضافه کنی اگر خواستی:
     titleInput.focus();
+
+    form.removeEventListener("submit", onAddSubmit);
+    form.addEventListener("submit", onEditSubmit);
 }
 
-async function DeleteProduct(id) {
+async function onDelete(id) {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
@@ -206,12 +234,8 @@ async function DeleteProduct(id) {
     }
 }
 
-
-
 function TriggerResultMessage(message) {
     resultMessage.innerText = message;
     resultMessage.style.opacity = "1";
     setTimeout(() => resultMessage.style.opacity = "0", 2000);
 }
-
-
